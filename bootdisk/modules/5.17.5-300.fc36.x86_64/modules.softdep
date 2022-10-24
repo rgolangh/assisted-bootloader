@@ -1,0 +1,17 @@
+# Soft dependencies extracted from modules themselves.
+softdep cifs gcm
+softdep cifs ccm
+softdep cifs aead2
+softdep cifs sha512
+softdep cifs sha256
+softdep cifs cmac
+softdep cifs aes
+softdep cifs nls
+softdep cifs md5
+softdep cifs hmac
+softdep cifs ecb
+softdep f2fs pre: crc32
+softdep csiostor pre: cxgb4
+softdep genet pre: mdio-bcm-unimac
+softdep r8169 pre: realtek
+softdep qat_4xxx pre: crypto-intel_qat

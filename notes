@@ -1,0 +1,140 @@
+#!/bin/bash -o errexit
+
+OCM_TOKEN=$(ocm token) 
+
+ocmcurl() { curl -s -H "Authorization: Bearer ${OCM_TOKEN}" "https://api.openshift.com/api/assisted-install/v2/$1"; }
+
+sayAndWait() { echo -e "$@\n-->\n" ; read -N 1 -s; }
+
+demo() {
+    # asciinema rec -i 0.7 -c tmux tmux-demo-2
+    sayAndWait $'This demo shows how to boot a machine with a boot disk and connect it whatever assisted cluster we choose'
+
+    sayAndWait $'It is done by booting the machine and extracting the iPXE script of a certain infra-env'
+
+    sayAndWait $'First lets extract the infra-env id and the cluster information from api.openshift.com:
+    ' $(type ocmcurl)
+
+    # get my infra envs and cluster id
+    sayAndWait $'Get my infra envs and cluster id from ocm:
+    ocmcurl infra-envs | jq .[]|{id,cluster_id}'
+
+    INFRA_ENV_ID=$(ocmcurl infra-envs | jq -r .[].id)
+    CLUSTER_ID=$(ocmcurl infra-envs | jq -r .[].cluster_id)
+
+    sayAndWait "infra env id: $INFRA_ENV_ID\ncluster id: $CLUSTER_ID\n"
+
+    sayAndWait $'Show cluster has no hosts 
+    ocmcurl clusters/${CLUSTER_ID} | jq \'.hosts[]\''
+
+    ocmcurl clusters/${CLUSTER_ID} | jq '.hosts'
+
+    # in linode, 
+    # - show the uploaded image
+    
+    sayAndWait $'Check out linode-cli images list | grep assisted-bootloader'
+
+    # - create a linode from the bootloader disk
+    sayAndWait $'Boot a linode from the assisted-bootloader'
+
+    # - show how to boot the machine from the disk
+    # - show both LISH and GLISH console 
+    # - show how the host is booting into the infra env
+
+    sayAndWait $'Examine the cluster hosts again - ocmcurl clusters/${CLUSTER_ID} | jq .hosts[].requestd_hostname'
+    ocmcurl clusters/${CLUSTER_ID} | jq '.hosts[]|{requestd_hostname, updated_at}'
+
+    # - further demonstration of the boot disk
+    sayAndWait $'More details about the custom initramfs disk from https://github.com/rgolangh/u-root/tree/generic-hub-cluster-bootloader'
+    
+    #cd $(mktemp -d) && git clone https://github.com/rgolangh/u-root -b generic-hub-cluster-bootloader --depth=1 && cd u-root
+
+
+    #   - add another host with that disk
+    #   - stop at the shell 
+    #   - show the refresh token file
+    #   - show the infraenv id file
+    #   - show fire the assisted-bootloader and stop at the linuxboot menu
+ }
+
+createInitrd() {
+    # I added the moduls from the net installer of fedora.
+    pushd ~/src/u-root
+    u-root \
+        -uinitcmd="/init.elvish" \
+        -files "init.elvish:/init.elvish" \
+        -files "/var/tmp/uroot/modules:/lib/modules" \
+        -files "/var/tmp/uroot/modprobe.d:/lib/modprobe.d" \
+        -files "/var/tmp/uroot/udev:/lib/udev" \
+        -files "/tmp/infraenvid:/infraenvid" \
+        -files "/tmp/token:/token" \
+        -o ~/src/assisted-bootloader/bootdisk/initrd \
+        core ./cmds/boot/pxeboot ./cmds/exp/modprobe ./cmds/assisted-bootloader
+    popd 
+}
+
+# run u-root created initramf in a vm
+
+runUrootVM() {
+    qemu-kvm \
+        -m 8G \
+        -cpu host \
+        -smp sockets=2,cores=2 \
+        -machine q35 \
+        -drive if=virtio,file=/home/rgolan/src/u-root/rhcos-raw-10G,format=raw \
+        -kernel /var/tmp/uroot/vmlinuz-5.17.5-300.fc36.x86_64 \
+        -initrd /var/tmp/uroot/initrd \
+        -nographic \
+        -chardev stdio,id=char0,mux=on,logfile=serial-0.log,signal=off \
+        -chardev pty,id=char1,mux=on,logfile=serial-1.log,signal=off \
+        -serial chardev:char0 -mon chardev=char0 \
+        -serial chardev:char1 -mon chardev=char1 \
+        -append "console=ttyS0 rd.break rd.debug" \
+        -netdev user,id=n1 \
+        -device virtio-net,netdev=n1 \
+        -device virtio-rng-pci \
+        -monitor unix:/tmp/urootvm,server,nowait \
+        -name urootvm
+
+}
+
+runSingleDiskUrootVM() {
+    qemu-kvm \
+        -m 8G \
+        -cpu host \
+        -smp sockets=2,cores=2 \
+        -machine q35 \
+        -nographic \
+        -chardev stdio,id=char0,mux=on,logfile=serial-0.log,signal=off \
+        -chardev pty,id=char1,mux=on,logfile=serial-1.log,signal=off \
+        -serial chardev:char0 -mon chardev=char0 \
+        -serial chardev:char1 -mon chardev=char1 \
+        -drive if=virtio,file=/var/tmp/uroot/expanded-bootloader-disk.img,format=raw,media=disk \
+        -netdev user,id=n1 \
+        -device virtio-net,netdev=n1 \
+        -device virtio-rng-pci \
+        -monitor unix:/tmp/urootvm,server,nowait \
+        -name urootvm
+}
+
+createISO() {
+    tmpdir=$(mktemp -d)
+    target=bootdisk
+    cp -r ${target}/CD_root ${tmpdir}/CD_root
+    cp ${target}/initrd ${tmpdir}/CD_root/isolinux/
+    mkisofs -o ${tmpdir}/output.iso \
+        -b isolinux/isolinux.bin \
+        -c isolinux/boot.cat \
+        -no-emul-boot -boot-load-size 4 \
+        -boot-info-table \
+        -V uroot -volset uroot -A uroot \
+        -U -r -T -J \
+        ${tmpdir}/CD_root/
+
+    isohybrid ${tmpdir}/output.iso
+    cp -v ${tmpdir}/output.iso ${target}/assisted-bootloader.img
+    sfdisk --delete ${target}/assisted-bootloader.img 1
+    gzip -c ${target}/assisted-bootloader.img > ${target}/assisted-bootloader.img.gz
+    echo "All ready in ${tmpdir}"
+}
+
