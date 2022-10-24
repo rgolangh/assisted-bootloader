@@ -1,3 +1,5 @@
 [submodule "u-root"]
 	path = u-root
 	url = git@github.com:rgolangh/u-root.git
+[submodule "u-root/"]
+	branch = generic-hub-cluster-bootloader
