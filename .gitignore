@@ -1,2 +1,3 @@
 bootdisk/assisted-bootloader.img
 bootdisk/assisted-bootloader.img.gz
+bootdisk/initrd
