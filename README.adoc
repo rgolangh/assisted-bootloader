@@ -1,17 +1,21 @@
 Assisted Bootloader
 -------------------
 
+// URLS:
+:assisted-bootloader: https://github.com/rgolangh/u-root/blob/c18bcfb89aab71a6bbaa94d05b7cc85501a24306/cmds/assisted-bootloader/assisted-bootloader.go
+
 To keep lowering the bar for installing a cluster,the assisted installer supplied a custom ISO to boot
 a machine with the target cluster relevant bits in its ignition and rootfs.
-The oppurtunity to cut this even further is to make a more generic booting tool that can be pointed at any
+The opportunity to cut this even further is to make a more generic booting tool that can be pointed at any
 cluster endpoint (the InfraEnv object) and pull the boot artifacts directly from it. 
 As more cloud providers looking for a way to add nodes using their infra, every one with its set of features
 and limitation (like no boot from ISO, or limited or non-direct user-data support), a search for more 
 decoupled and streamlined way to add any machine to a cluster is important.
 
 This effort has 2 main artifacts:
- - an init program that runs after the kernel boots(built using u-root) and
- - a raw, bootable, ~60M disk image.
+
+* an {assisted-bootloader}[init program] that runs after the kernel boots(built using u-root) and
+* a raw, bootable, ~60M disk image.
 
 Bootloading sequence
 --
@@ -19,7 +23,7 @@ Bootloading sequence
 * assisted-bootloader programs starts with infra-env-id and token arguments
 * parses the iPXE script of the infra-env
 * downloads kernel, initrd, and cmdline from infra-env
-* `kexec` into the kernel and initrd
+* `kexec` into the kernel and initrd (of the assisted ISO)
 * normal assisted flow with the agent takes place
 
 To create a complete initramfs using the u-root fork:
@@ -30,7 +34,7 @@ To produce the disk image:
 [source, bash]
 make disk-image
 
-To use the image locally, for exlopration and dev:
+To use the image locally, for exploration and dev:
 [source, bash]
 make run-vm
 
