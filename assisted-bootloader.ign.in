@@ -1,0 +1,41 @@
+{
+  "ignition": { "version": "3.0.0" },
+  "passwd": {
+    "users": [ 
+       {
+         "name": "core",
+         "passwordHash": "$y$j9T$wdmsACnGXQWlCqwhURWb2.$f2pUTCbbQRDj0fM94axOZSiEYh7reP09Vb1gQBf7JR.",
+         "sshAuthorizedKeys": [
+           "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDX95Yb4UAiBLh+6KAchctC7VrUGghC7OLyJJctkA+wxOL3gBSUz1Y95J+PSh1nkuftKGM2Nl4vPULq9UgfpygjetLuiDI4x59IGCmaAKmvTr+moT/DsteIIj2P4JVTxEFFwF55tp4n8Yypd4up20yhj737FmO1AOzjaHHDodGQiXn6cJy5Kd+vn0HSTi6nkR2pyodBWRhV58swAAc3OkjAG2SqCLxuvT1UdXgAY1TJfnE6WBzOGcJ9KyvSFK0M9ROfnsXEvDXDo3zzz0hSWDqH6NqjBVMSULxB143ek80A2ShtcQjV5Xpdu7RBzoA/cFvRBz2pHt3XgwyrJybRNepAS8HzHQ2D/rcsRZ45QnSeHWx4xOhFKWFJ9Ohr9mdX8WkxGVhlavsEZzJndjxGKEMa4HIZ5jm8Y8VJ3PG6kcDfquE7q4h0EopNc2PSRVKX4WhPFT1CmerRerCJAlTegS2VMkCeBiLlfm7if3PWNWKUfH4+4eOGayHoazQdMWwqi4ryV1SwxhrBCFimBTARbufwMIwWf6kDEETpu93+Lpb7/m0JdAKghlSbUqS3YdV0IW73fGRfvj9NpyiUlGkgT4Z1HtHiNWKWhPxeUAtKncPjCI7YUYb1UPLvRh7IrhQVbvdajFzSTFC/e0bstbYIE2KYYjeuPme85wjv+Jqd76O7Ww== rgolan@redhat.com"
+         ]
+       }
+    ]
+  },
+  "systemd": {
+    "units": [{
+      "name": "assisted-bootloader.service",
+      "enabled": true,
+      "contents": "[Unit]\nRequires=network-online.target\nAfter=network-online.target\n[Service]\nType=oneshot\nExecStart=bash /opt/assisted-bootloader.sh\nStandardOutput=kmsg+console\nStandardError=kmsg+console\n[Install]\nWantedBy=multi-user.target\n"
+    }]
+  },
+  "storage": {
+    "files": [
+      {
+        "mode": 511,
+        "path": "/opt/assisted-bootloader.sh",
+        "contents": { "source": "data:;base64,ABL_SCRIPT" }
+      },
+      {
+        "path": "/opt/token",
+        "mode": 420,
+        "contents": { "source": "data:,REFRESH_TOKEN" }
+      },
+      {
+        "mode": 420,
+        "path": "/opt/infraenvid",
+        "contents": { "source": "data:,0886793b-19e6-408b-bb37-9596a29a5fd0" }
+      }
+    ]
+  }
+
+}

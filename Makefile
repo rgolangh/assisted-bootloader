@@ -35,7 +35,8 @@ initrd:
 	    -o ../bootdisk/initrd \
 	    core ./cmds/boot/pxeboot ./cmds/exp/modprobe ./cmds/assisted-bootloader
 
-run-vm: disk-image
+IMG = bootdisk/assisted-bootloader.img
+run-vm: 
 	qemu-kvm \
 		-m 8G \
 		-cpu host \
@@ -46,7 +47,7 @@ run-vm: disk-image
 		-chardev pty,id=char1,mux=on,logfile=serial-1.log,signal=off \
 		-serial chardev:char0 -mon chardev=char0 \
 		-serial chardev:char1 -mon chardev=char1 \
-		-drive if=virtio,file=bootdisk/assisted-bootloader.img,format=raw,media=disk \
+		-drive if=virtio,file=$(IMG),format=raw,media=disk \
 		-netdev user,id=n1 \
 		-device virtio-net,netdev=n1 \
 		-device virtio-rng-pci \
@@ -54,7 +55,7 @@ run-vm: disk-image
 		-name assisted-bootloader 
 
 
-run-vm-initrd: initrd
+run-vm-initrd:
 	qemu-kvm \
 		-m 8G \
 		-cpu host \
@@ -77,3 +78,21 @@ run-vm-initrd: initrd
 verify-tools-exists:
 	which mkisofs isohybrid sfdisk gzip
 
+fcos-customize:
+	coreos-installer iso customize \
+		--live-karg-append "console=ttyS0" \
+		--live-ignition assisted-bootloader.ign  \
+		-o custom.img \
+		fedora-coreos-36.20221001.3.0-live.x86_64.iso
+		# download the fedora iso using coreos-installer download -t iso
+		# fedora-coreos-36.20221001.3.0-live.x86_64.iso
+		# extract minimal iso using coreos-install iso extract minimal-iso
+		# fcos-minimal.iso 
+
+validate-ignition:
+	podman run -i ignition-validate:latest - < assisted-bootloader.ign
+
+generate-ignition:
+	sed -e 's/ABL_SCRIPT/$(shell cat assisted-bootloader-install.sh | base64 -w 0)/;s/REFRESH_TOKEN/$(shell ocm token --refresh)/' \
+		assisted-bootloader.ign.in > assisted-bootloader.ign
+	$(MAKE) validate-ignition
