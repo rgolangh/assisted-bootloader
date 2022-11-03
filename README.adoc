@@ -1,5 +1,6 @@
 Assisted Bootloader
 -------------------
+:toc:
 
 // URLS:
 :assisted-bootloader: https://github.com/rgolangh/u-root/blob/c18bcfb89aab71a6bbaa94d05b7cc85501a24306/cmds/assisted-bootloader/assisted-bootloader.go
@@ -47,3 +48,8 @@ to download and execute the assisted-bootloader binary.
 See the `assisted-bootloader.ign.in` and the `assisted-booloader-install.sh` and
 run `make generate-ignition` when needed.
 
+TODO
+----
+. support more ways to get the infra-env-id and token without the needed
+to custom the disk every time. For example read kernel boot parameters, or 
+qemu's fw-cfg (this obviously depends on the provider support)
