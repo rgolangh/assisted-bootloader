@@ -1,26 +1,17 @@
 SHELL := /bin/bash
 
-tmpdir := $(shell mktemp -d)
-target := bootdisk
-disk-image: verify-tools-exists initrd 
-	cp -v -r $(target)/CD_root $(tmpdir)/CD_root
-	cp -v $(target)/initrd $(tmpdir)/CD_root/isolinux/
-	mkisofs -o $(tmpdir)/assisted-bootloader.img \
-	    -b isolinux/isolinux.bin \
-	    -c isolinux/boot.cat \
-	    -no-emul-boot -boot-load-size 4 \
-	    -boot-info-table \
-	    -V uroot -volset uroot -A uroot \
-	    -U -r -T -J \
-	    $(tmpdir)/CD_root/
-	
-	isohybrid $(tmpdir)/assisted-bootloader.img
-	# remove the partition, otherwise disk extention fails (in linode)
-	sfdisk --delete $(tmpdir)/assisted-bootloader.img 1
-	gzip -c $(tmpdir)/assisted-bootloader.img > $(tmpdir)/assisted-bootloader.img.gz
-	cp -v $(tmpdir)/assisted-bootloader.img $(target)
-	cp -v $(tmpdir)/assisted-bootloader.img.gz $(target)
-	echo "All ready in $(tmpdir)"
+IMG = fcos-assisted-bootloader.img 
+
+disk-image: verify-tools-exists initrd generate-ignition validate-ignition
+	coreos-installer iso customize \
+		--live-karg-append "console=ttyS0" \
+		--live-ignition assisted-bootloader.ign  \
+		-o $(IMG) \
+		fedora-coreos-36.20221001.3.0-live.x86_64.iso
+		# download the fedora iso using coreos-installer download -t iso
+		# fedora-coreos-36.20221001.3.0-live.x86_64.iso
+		# extract minimal iso using coreos-install iso extract minimal-iso
+		# fcos-minimal.iso 
 
 initrd:
 	# I added the moduls from the net installer of fedora.
@@ -35,7 +26,6 @@ initrd:
 	    -o ../bootdisk/initrd \
 	    core ./cmds/boot/pxeboot ./cmds/exp/modprobe ./cmds/assisted-bootloader
 
-IMG = bootdisk/assisted-bootloader.img
 run-vm: 
 	qemu-kvm \
 		-m 8G \
@@ -76,18 +66,7 @@ run-vm-initrd:
 		-name assisted-bootloader
 
 verify-tools-exists:
-	which mkisofs isohybrid sfdisk gzip
-
-fcos-customize:
-	coreos-installer iso customize \
-		--live-karg-append "console=ttyS0" \
-		--live-ignition assisted-bootloader.ign  \
-		-o custom.img \
-		fedora-coreos-36.20221001.3.0-live.x86_64.iso
-		# download the fedora iso using coreos-installer download -t iso
-		# fedora-coreos-36.20221001.3.0-live.x86_64.iso
-		# extract minimal iso using coreos-install iso extract minimal-iso
-		# fcos-minimal.iso 
+	which coreos-installer podman ocm 
 
 validate-ignition:
 	podman run -i ignition-validate:latest - < assisted-bootloader.ign
