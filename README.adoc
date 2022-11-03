@@ -14,30 +14,36 @@ decoupled and streamlined way to add any machine to a cluster is important.
 
 This effort has 2 main artifacts:
 
-* an {assisted-bootloader}[init program] that runs after the kernel boots(built using u-root) and
-* a raw, bootable, ~60M disk image.
+* an {assisted-bootloader}[init program] that runs after the kernel boots
+* a raw, bootable fedora coreos based disk image
 
 Bootloading sequence
---
-* boot a node with a disk created from that image (large enough for a full worker install)
+--------------------
+* boot a node into live fcos using a disk created from that image (large enough for a full worker install)
 * assisted-bootloader programs starts with infra-env-id and token arguments
+* a one-shot systemd service downloads assisted-bootloader and executes it 
 * parses the iPXE script of the infra-env
 * downloads kernel, initrd, and cmdline from infra-env
 * `kexec` into the kernel and initrd (of the assisted ISO)
 * normal assisted flow with the agent takes place
 
+To produce a fedora coreos disk image:
+[source, bash]
+make
+
 To create a complete initramfs using the u-root fork:
 [source, bash]
 make initrd
-
-To produce the disk image:
-[source, bash]
-make disk-image
 
 To use the image locally, for exploration and dev:
 [source, bash]
 make run-vm
 
-Demo of the disk in action with a Linode instance:
+Disk Image Content
+------------------
+The boot image is based on fedora coreos with a ignition that contains a script
+to download and execute the assisted-bootloader binary.
 
-image::assisted-bootloader-with-linode.gif[]
+See the `assisted-bootloader.ign.in` and the `assisted-booloader-install.sh` and
+run `make generate-ignition` when needed.
+
