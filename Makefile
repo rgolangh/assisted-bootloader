@@ -1,9 +1,12 @@
 SHELL := /bin/bash
 
 IMG = fcos-assisted-bootloader.img 
+REFRESH_TOKEN = 1234
+INFRA_ENV_ID  = 5678 
+COREOS_INSTALLER_BIN := toolbox run coreos-installer
 
 disk-image: verify-tools-exists initrd generate-ignition validate-ignition
-	coreos-installer iso customize \
+	$(COREOS_INSTALLER_BIN) iso customize \
 		--live-karg-append "console=ttyS0" \
 		--live-ignition assisted-bootloader.ign  \
 		-o $(IMG) \
@@ -37,11 +40,12 @@ run-vm:
 		-chardev pty,id=char1,mux=on,logfile=serial-1.log,signal=off \
 		-serial chardev:char0 -mon chardev=char0 \
 		-serial chardev:char1 -mon chardev=char1 \
-		-drive if=virtio,file=$(IMG),format=raw,media=disk \
+		-drive if=virtio,media=disk,file=$(IMG) \
 		-netdev user,id=n1 \
 		-device virtio-net,netdev=n1 \
 		-device virtio-rng-pci \
 		-monitor unix:/tmp/urootvm,server,nowait \
+
 		-name assisted-bootloader 
 
 
@@ -66,7 +70,7 @@ run-vm-initrd:
 		-name assisted-bootloader
 
 verify-tools-exists:
-	which coreos-installer podman ocm 
+	which podman ocm 
 
 validate-ignition:
 	podman run -i ignition-validate:latest - < assisted-bootloader.ign

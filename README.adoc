@@ -52,4 +52,13 @@ TODO
 ----
 . support more ways to get the infra-env-id and token without the needed
 to custom the disk every time. For example read kernel boot parameters, or 
-qemu's fw-cfg (this obviously depends on the provider support)
+qemu's fw-cfg (this obviously depends on the provider support).
+Pass in those flags to qemu:
+		-fw_cfg name=opt/token,string=$(REFRESH_TOKEN) \
+		-fw_cfg name=opt/infraenvid,string=$(INFRA_ENV_ID) \
+And modify the assisted-installer-installer.sh script to attempt
+to read the values at `/sys/firmware/qemu_fw_cfg/by_name/opt/token/raw`
+Downside of this mothod is that the token is available on the clear for anyone
+with access to the qemu arg list (/proc/$PID/cmdline is world readable)
+
+
