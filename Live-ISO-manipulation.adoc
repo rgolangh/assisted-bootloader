@@ -1,0 +1,62 @@
+This effort has a differnt approach to bootloading into the infra env:
+- Manipulate the ISO
+-- Take the live iso metal of the version
+-- Change platform to 'openstack' of the ISO
+-- Adapt the kernel arg line for proper bootloading
+- Convert ISO to qcow2 disk
+- Download the ignition from the target infra-env
+- Spin an instance in whatever provider with the disk (as custom image) and ignition as cloud init data
+
+== Manipulate the ISO
+
+First download RHCOS live iso from the metal platform, by extracting `openshift-installer coreos` subcommand:
+
+---
+disk=$(openshift-install coreos print-stream-json |
+    jq -r '.architectures.x86_64.artifacts.metal.formats.iso.disk.location')
+
+curl -L ${disk} -o live.iso
+---
+
+Change the platform id from metal to openstack:
+---
+coreos-installer iso customize \
+    --live-karg-replace ignition.platform.id=metal=openstack \
+    live.iso
+---
+
+
+Remove the embedded ignition:
+---
+coreos-installer iso ignition remove live.iso 
+---
+
+Remove the ISO partition (to pass validation in assisted service):
+---
+sfdisk --delete live.iso 1
+---
+
+== QCOW2 Disk
+
+Convert the iso to a qcow2 disk:
+---
+qemu-img convert -O qcow2 live.iso rhcos-live-openstack-platform.qcow2
+---
+
+Now this disk can be imported by many cloud providers as a custom image.
+
+
+== Download ignition from a target infra env
+
+First make sure you go to "Add hosts" under the cluster view and add you ssh key,
+then approve the "generate the discovary ISO" dialog.
+---
+export INFRA_ENV_ID="set it"
+curl -s \
+    -H "Authorization: Bearer $(ocm token)" \
+     "https://api.openshift.com/api/assisted-install/v2/infra-envs/$INFRA_ENV_ID/downloads/files-presigned?file_name=discovery.ign" \
+     | jq  -r '.url' | curl $(cat /dev/stdin) -o ignition.ign
+---
+
+Spin an instance from the custom image, and add the ignition as a user data.
+
