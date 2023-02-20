@@ -1,47 +1,60 @@
+= Live Generic ISO
+
 This effort has a differnt approach to bootloading into the infra env:
-- Manipulate the ISO
--- Take the live iso metal of the version
--- Change platform to 'openstack' of the ISO
--- Adapt the kernel arg line for proper bootloading
-- Convert ISO to qcow2 disk
-- Download the ignition from the target infra-env
-- Spin an instance in whatever provider with the disk (as custom image) and ignition as cloud init data
+
+* Manipulate the ISO
+  - Take the live iso metal of the version
+  - Change platform to 'openstack' of the ISO
+  - Adapt the kernel arg line for proper bootloading
+    ** remove coreos.live=* to make initramfs load from memory
+    ** append to initrd the rootfs from /images/pxeboot/rootfs.img (will be loaded to mem as well)
+* Convert ISO to qcow2 disk
+* Download the ignition from the target infra-env
+* Spin an instance in whatever provider with the disk (as custom image) and ignition as cloud init data
 
 == Manipulate the ISO
 
-First download RHCOS live iso from the metal platform, by extracting `openshift-installer coreos` subcommand:
-
----
+.First download RHCOS live iso from the metal platform, by extracting `openshift-installer coreos` subcommand:.
+[source,bash]
+-------------
 disk=$(openshift-install coreos print-stream-json |
     jq -r '.architectures.x86_64.artifacts.metal.formats.iso.disk.location')
 
 curl -L ${disk} -o live.iso
----
+-------------
 
-Change the platform id from metal to openstack:
----
+
+.Change the platform id from metal to openstack:
+[source,bash]
+-------------
 coreos-installer iso customize \
     --live-karg-replace ignition.platform.id=metal=openstack \
-    live.iso
----
+    --live-karg-append initrd=/images/pxeboot/rootfs.img \
+    --live-karg-delete coreos.liveiso=$(extract exact line) \
+    live.iso \
+    -o live-customized.iso
+-------------
 
 
-Remove the embedded ignition:
----
+.Remove the embedded ignition:
+[source,bash]
+-------------
 coreos-installer iso ignition remove live.iso 
----
+-------------
 
-Remove the ISO partition (to pass validation in assisted service):
----
+.Remove the ISO partition (to pass validation in assisted service):
+[source,bash]
+-------------
 sfdisk --delete live.iso 1
----
+-------------
 
 == QCOW2 Disk
 
-Convert the iso to a qcow2 disk:
----
+.Convert the iso to a qcow2 disk:
+[source,bash]
+-------------
 qemu-img convert -O qcow2 live.iso rhcos-live-openstack-platform.qcow2
----
+-------------
 
 Now this disk can be imported by many cloud providers as a custom image.
 
@@ -50,13 +63,16 @@ Now this disk can be imported by many cloud providers as a custom image.
 
 First make sure you go to "Add hosts" under the cluster view and add you ssh key,
 then approve the "generate the discovary ISO" dialog.
----
+[source,bash]
+-------------
 export INFRA_ENV_ID="set it"
 curl -s \
     -H "Authorization: Bearer $(ocm token)" \
      "https://api.openshift.com/api/assisted-install/v2/infra-envs/$INFRA_ENV_ID/downloads/files-presigned?file_name=discovery.ign" \
      | jq  -r '.url' | curl $(cat /dev/stdin) -o ignition.ign
----
+
+-------------
 
 Spin an instance from the custom image, and add the ignition as a user data.
+
 
